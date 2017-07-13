@@ -2,6 +2,23 @@
 import requests
 from bs4 import BeautifulSoup
 
+class CurrencyPair(object):
+    """
+    Information of exchange, pair, price, market share.
+    """
+    def __init__(self, exchange, pair, price, market_share):
+        """
+        Constructor
+        """
+        self.exchange = exchange
+        self.pair = pair
+        self.price = price
+        self.market_share = market_share
+    
+    def __str__(self):
+        return ("Currency: %s, Pair: %s, Price: %.8f, Market share: %.2f%%" %
+                (self.exchange, self.pair, self.price, self.market_share))
+
 class HtmlExtractor(object):
     """
     Extract the cryptocurrency price information from the website coinmarketcap.
@@ -56,7 +73,7 @@ class HtmlExtractor(object):
                                      .text.replace("%", ""))
                 update = entries[HtmlExtractor.LATEST_UPDATE_INDEX].text
                 if update == "Recently":
-                    ret.append((exchange, pair, price, market_share))
+                    ret.append(CurrencyPair(exchange, pair, price, market_share))
         else:
             # Failed
             # TBD
@@ -67,4 +84,5 @@ class HtmlExtractor(object):
 if __name__ == '__main__':
     extractor = HtmlExtractor()
     response = extractor.get_data("ripple")
-    print(response)
+    for pair in response:
+        print(pair)
