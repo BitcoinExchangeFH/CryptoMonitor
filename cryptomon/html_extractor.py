@@ -1,6 +1,7 @@
 #!/bin/python
-import requests
 from bs4 import BeautifulSoup
+import requests
+import re
 
 class CurrencyPair(object):
     """
@@ -16,7 +17,7 @@ class CurrencyPair(object):
         self.market_share = market_share
     
     def __str__(self):
-        return ("Currency: %s, Pair: %s, Price: %.8f, Market share: %.2f%%" %
+        return ("Exchange: %s, Pair: %s, Price: %.8f, Market share: %.2f%%" %
                 (self.exchange, self.pair, self.price, self.market_share))
 
 class HtmlExtractor(object):
@@ -68,16 +69,18 @@ class HtmlExtractor(object):
                 entries = record.find_all('td')
                 exchange = entries[HtmlExtractor.EXCHANGE_INDEX].text
                 pair = entries[HtmlExtractor.PAIR_INDEX].text
-                price = float(entries[HtmlExtractor.PRICE_INDEX].text
-                              .replace("$", "").replace(",", ""))
-                market_share = float(entries[HtmlExtractor.MARKET_SHARE_INDEX]
-                                     .text.replace("%", ""))
+                price = re.search("(\d+\.*\d*)", 
+                                entries[HtmlExtractor.PRICE_INDEX].text).group(0)
+                price = float(price)
+                market_share = re.search("(\d+\.*\d*)", 
+                                entries[HtmlExtractor.MARKET_SHARE_INDEX].text).group(0)
+                market_share = float(market_share)                    
                 update = entries[HtmlExtractor.LATEST_UPDATE_INDEX].text
                 if update == "Recently":
                     ret.append(CurrencyPair(exchange, pair, price, market_share))
         else:
             # Failed
-            raise Exception("Http request error: %d" % response.status_code)
+            raise requests.exceptions.HTTPError("Http request error: %d" % response.status_code)
         
         return ret
     
@@ -110,7 +113,7 @@ class HtmlExtractor(object):
 if __name__ == '__main__':
     extractor = HtmlExtractor()
     currency = "ripple"
-    response = extractor.get_arbitrage_pair(currency, 0.1)
+    response = extractor.get_arbitrage_pair(currency, 0.05)
     if response is not None:
         print("Arbitrage pair on %s:\n%s\n%s" % (currency, response[0], response[1]))
     else:

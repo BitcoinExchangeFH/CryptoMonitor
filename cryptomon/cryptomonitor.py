@@ -1,9 +1,12 @@
 #!/bin/python
 from cryptomon.html_extractor import HtmlExtractor
 from cryptomon.stack_api_client import SlackApiClient
+from cryptomon.graceful_killer import GracefulKiller
+from cryptomon.arbitrage_monitor import ArbitrageMonitor
 import sys
 import argparse
 import time
+import requests
 
 def main():
     parser = argparse.ArgumentParser(description='Cryptocurrency monitor.')
@@ -22,7 +25,7 @@ def main():
                         action='store', 
                         dest='sleep',
                         help='Sleep time between each request.',
-                        default=10)       
+                        default=30)       
     parser.add_argument('-key', 
                         action='store', 
                         dest='key',
@@ -42,7 +45,6 @@ def main():
     
     #####################################################################################
     # Initialize variables
-    print("Currency pairs:")
     for pair in args.pair:
         if len(pair) != 2:
             print("[ERROR] First value is the symbol and the second value is the level.")
@@ -50,7 +52,6 @@ def main():
             sys.exit(1)
         else:
             pair[1] = float(pair[1])
-            print("\tSymbol: %s, Level: %.2f%%" % (pair[0], pair[1] * 100))
     
     if args.key is None:
         print("[ERROR] Slack API key is mandatory.")
@@ -78,48 +79,14 @@ def main():
     # Variables
     slack = SlackApiClient(args.key, args.channel)
     extractor = HtmlExtractor()
-    error_count = 0
-    arb_pairs = {}
-    
-    while True:
-        for pair in args.pair:
-            symbol = pair[0]
-            level = pair[1]
-            
-            try:
-                arb = extractor.get_arbitrage_pair(symbol, level)
-            except Exception as e:
-                error_count += 1
-                if error_count >= args.nerror:
-                    print("[ERROR] Number of exceptions exceeds the tolerance level (%d)." % 
-                            (args.nerror))
-                    raise e
-                else:
-                    continue
-                    
-            if arb is not None:
-                signal_arb = False
-                if symbol not in arb_pairs.keys():
-                    signal_arb = True
-                else:
-                    prev_arb = arb_pairs[symbol]
-                    if (prev_arb[0].exchange == arb[0].exchange and
-                        prev_arb[0].pair == arb[0].pair and 
-                        prev_arb[1].exchange == arb[1].exchange and
-                        prev_arb[1].pair == arb[1].pair):
-                        # Same as the previous arbitrage signal
-                        signal_arb = False
-                    else:
-                        # Different from the previous arbitrage signal 
-                        signal_arb = True
-                        
-                if signal_arb:
-                    arb_pairs[symbol] = arb
-                    # print("Arbitrage pair on %s:\n%s\n%s" % (symbol, arb[0], arb[1]))
-                    slack.post_message("Arbitrage pair on %s:\n%s\n%s" % (symbol, arb[0], arb[1]))
-                
-            time.sleep(args.sleep)
-    
+    killer = GracefulKiller()
+    monitor = ArbitrageMonitor(pairs=args.pair,
+                               killer=killer,
+                               slack=slack,
+                               extractor=extractor,
+                               sleep_sec=args.sleep,
+                               max_error_count=args.nerror)
+    monitor.run()
         
 if __name__ == '__main__':
     main()
