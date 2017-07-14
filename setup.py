@@ -13,6 +13,7 @@ setup(
             'console_scripts': ['cryptomon=cryptomon.cryptomonitor:main']
         },
     install_requires=[
-            'beautifulsoup4'
+            'beautifulsoup4',
+            'slacker'
         ]
     )
