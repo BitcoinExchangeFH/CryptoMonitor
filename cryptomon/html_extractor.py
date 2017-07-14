@@ -25,6 +25,7 @@ class HtmlExtractor(object):
     By default, only the first 10 records (more than 10% of market cap) is recorded.
     """
     URL = "https://coinmarketcap.com/currencies/%s/#markets"
+    MAX_COMPARE_PAIRS = 10
     NUMBER = 10
     ID_INDEX = 0
     EXCHANGE_INDEX = 1
@@ -76,13 +77,41 @@ class HtmlExtractor(object):
                     ret.append(CurrencyPair(exchange, pair, price, market_share))
         else:
             # Failed
-            # TBD
-            raise NotImplementedError("Not yet implemented failed case.")
+            raise Exception("Http request error: %d" % response.status_code)
         
         return ret
-
+    
+    def get_arbitrage_pair(self, symbol, price_diff):
+        """
+        Get arbitrage pair
+        :param symbol       Symbol name
+        :param price_diff   Price difference
+        :return Tuple of arbitrage pair. None if not found.
+        """
+        pairs = self.get_data(symbol)
+        num_of_pairs = min(len(pairs), HtmlExtractor.MAX_COMPARE_PAIRS)
+        arb_pairs = []
+        
+        # Find all the arbitrage pairs
+        for i in range(0, num_of_pairs):
+            for j in range(i+1, num_of_pairs):
+                if (pairs[i].price / pairs[j].price > 1 + price_diff or
+                    pairs[j].price / pairs[i].price > 1 + price_diff):
+                    arb_pairs.append((pairs[i], pairs[j]))
+        
+        if len(arb_pairs) > 0:
+            arb_pairs = sorted(arb_pairs, 
+                                key=(lambda x: x[0].market_share + x[1].market_share),
+                                reverse=True)
+            return arb_pairs[0]
+        else:
+            return None
+        
 if __name__ == '__main__':
     extractor = HtmlExtractor()
-    response = extractor.get_data("ripple")
-    for pair in response:
-        print(pair)
+    currency = "ripple"
+    response = extractor.get_arbitrage_pair(currency, 0.1)
+    if response is not None:
+        print("Arbitrage pair on %s:\n%s\n%s" % (currency, response[0], response[1]))
+    else:
+        print("No arbitrage pair on %s." % currency)

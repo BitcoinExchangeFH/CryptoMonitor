@@ -11,7 +11,7 @@ class SlackApiClient(Slacker):
         """
         Constructor
         """
-        Slacker.__init__(key)
+        Slacker.__init__(self, key)
         self.channel = channel
     
     def post_message(self, message):
