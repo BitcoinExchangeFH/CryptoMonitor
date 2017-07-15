@@ -98,8 +98,9 @@ class HtmlExtractor(object):
         # Find all the arbitrage pairs
         for i in range(0, num_of_pairs):
             for j in range(i+1, num_of_pairs):
-                if (pairs[i].price / pairs[j].price > 1 + price_diff or
-                    pairs[j].price / pairs[i].price > 1 + price_diff):
+                if (pairs[i].price > 0 and pairs[j].price and
+                    (pairs[i].price / pairs[j].price > 1 + price_diff or
+                    pairs[j].price / pairs[i].price > 1 + price_diff)):
                     arb_pairs.append((pairs[i], pairs[j]))
         
         if len(arb_pairs) > 0:
